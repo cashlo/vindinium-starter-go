@@ -6,7 +6,7 @@ import (
 	"os"
 	"strconv"
 
-	"github.com/geetarista/vindinium-starter-go/vindinium"
+	"github.com/cashlo/vindinium-starter-go/vindinium"
 )
 
 var (
@@ -19,7 +19,7 @@ func init() {
 	flag.StringVar(&client.Server, "s", "http://vindinium.org", "server")
 	flag.StringVar(&client.Key, "k", "", "api key")
 	flag.StringVar(&client.Mode, "m", "arena", "mode (arena or training)")
-	flag.StringVar(&client.BotName, "b", "fighter", "name of bot to use")
+	flag.StringVar(&client.BotName, "b", "cash", "name of bot to use")
 	flag.StringVar(&count, "c", "1", "number of games or turns to play")
 	flag.BoolVar(&client.RandomMap, "r", true, "use random map (useful for training against same map)")
 	flag.BoolVar(&client.Debug, "d", false, "debug output")
