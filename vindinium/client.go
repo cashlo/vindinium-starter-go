@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 	"time"
+	"strings"
 )
 
 const (
@@ -45,6 +46,8 @@ func NewClient(server, key, mode, botName, turns string, randomMap bool, debug b
 func (c *Client) Setup() {
 	c.Url = c.Server + "/api/" + c.Mode
 	switch c.BotName {
+	case "cash":
+		c.Bot = &CashBot{}
 	case "fighter":
 		c.Bot = &FighterBot{}
 	default:
@@ -111,14 +114,21 @@ func (c *Client) Play() error {
 	fmt.Printf("Playing at: %s\n", c.State.ViewUrl)
 	move := 1
 	for c.State.Game.Finished == false {
-		fmt.Printf("\rMaking move: %d", move)
+		fmt.Printf("Making move: %d\n", move)
 
 		if c.Debug {
 			fmt.Printf("\nclient: %+v\n", c)
 			fmt.Printf("bot: %+v\n", c.Bot)
 			fmt.Printf("state: %+v\n", c.State)
 		}
-
+		
+		size := c.State.Game.Board.Size*2
+		fmt.Println(strings.Repeat("=",size))
+		for i := 0; i < size*(size/2); i = i+size {
+			fmt.Println(c.State.Game.Board.Tiles[i:i+size])
+		}
+		c.State.Game.Board.parseTiles();
+		fmt.Printf("%+v\n", c.State.Game.Board.Tileset)
 		dir := c.Bot.Move(c.State)
 		if err := c.move(dir); err != nil {
 			return err
