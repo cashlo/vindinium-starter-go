@@ -79,6 +79,7 @@ func (c *Client) post(uri string, values url.Values, seconds int) error {
 
 	response, err := client.PostForm(uri, values)
 	if err != nil {
+		fmt.Println("PostForm error: ", values)
 		return err
 	}
 	defer response.Body.Close()
@@ -86,6 +87,7 @@ func (c *Client) post(uri string, values url.Values, seconds int) error {
 	data, _ := ioutil.ReadAll(response.Body)
 
 	if err := json.Unmarshal(data, &c.State); err != nil {
+		fmt.Println("Unmarshal Error: ", string(data), "state: ", c.State)
 		return err
 	}
 

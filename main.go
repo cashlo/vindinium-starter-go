@@ -50,7 +50,7 @@ func main() {
 			panic(err.Error())
 		}
 		if err := client.Play(); err != nil {
-			panic(err.Error())
+			fmt.Println(err.Error())
 		}
 	}
 	fmt.Printf("Finished %d games.", games)

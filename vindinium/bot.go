@@ -51,12 +51,126 @@ func (b *CashBot) Move(state *State) Direction {
 	board.parseTiles()
 
 	b.buildBoards(state)
-	b.fillBoards(state)
+	//b.fillBoards(state)
 
+//	b.PrintDirectionBoard()
+//	fmt.Println("Going ", b.GoDirection)
+
+	from := make(chan Destiny, 10000)
+	hero := state.Hero
+	b.survivalMode = false
+
+	lazyMode := true
+
+	for badHeroIndex := range state.Game.Heroes {
+		badHero := state.Game.Heroes[badHeroIndex]
+		if badHero.Gold >= hero.Gold && badHero.MineCount >= hero.MineCount {
+			lazyMode = false
+		}
+	}
+
+	if hero.Life < 50 || lazyMode{
+		b.survivalMode = true
+	}
+
+	from <- Destiny{Pos: *hero.Pos, Dir: "Stay"}
+
+	des := b.BoardWalker(state, from)
 	b.PrintDirectionBoard()
-	fmt.Println("Going ", b.GoDirection)
-	return b.GoDirection
+
+	return des.Dir
 }
+
+type Destiny struct {
+	Pos Position
+	Dir Direction
+}
+
+func (b *CashBot) BoardWalker (state *State, from chan Destiny)  Destiny {
+	seen := make(map[Position]bool)
+	board := state.Game.Board
+	size := state.Game.Board.Size
+
+	for des := range from {
+
+
+
+		if 	seen[des.Pos] ||
+			des.Pos.X < 0 ||
+			des.Pos.Y < 0 ||
+			des.Pos.X >= size ||
+			des.Pos.Y >= size {
+
+			if len(from) <= 0 {
+				break
+			}
+
+			continue
+		}
+			seen[des.Pos] = true
+			tile := board.Tileset[des.Pos.X][des.Pos.Y]
+
+			if b.survivalMode && tile == TAVERN {
+				return des
+			}
+
+			if reflect.TypeOf(tile).String() == "*vindinium.HeroTile" {
+				heroTile := tile.(*HeroTile)
+				if(heroTile.Id != state.Hero.Id){
+					hero := state.Game.Heroes[heroTile.Id-1]
+					if(hero.Life < state.Hero.Life){
+						fmt.Printf("Found Hero %d with less life!", heroTile.Id)
+						return des
+					}
+				}
+			}
+
+			if ! b.survivalMode && reflect.TypeOf(tile).String() == "*vindinium.MineTile" {
+				mine := tile.(*MineTile)
+				mineId, _ := strconv.Atoi(mine.HeroId)
+				if mineId != state.Hero.Id {
+					return des
+				}
+			}
+
+		
+			if tile == AIR  || reflect.TypeOf(tile).String() == "*vindinium.HeroTile"  {
+
+				if reflect.TypeOf(tile).String() == "*vindinium.HeroTile" {
+					heroTile := tile.(*HeroTile)
+					if(heroTile.Id != state.Hero.Id){
+						continue;
+					}
+				}
+
+				
+				b.DirectionBoard[des.Pos.X][des.Pos.Y] = des.Dir[:1]
+				if des.Dir == "Stay" {
+					from <- Destiny{Pos: Position{X: des.Pos.X - 1, Y: des.Pos.Y    }, Dir: "North"}
+					from <- Destiny{Pos: Position{X: des.Pos.X    , Y: des.Pos.Y - 1}, Dir: "West"}
+					from <- Destiny{Pos: Position{X: des.Pos.X + 1, Y: des.Pos.Y    }, Dir: "South"}
+					from <- Destiny{Pos: Position{X: des.Pos.X    , Y: des.Pos.Y + 1}, Dir: "East"}
+				} else {
+					from <- Destiny{Pos: Position{X: des.Pos.X - 1, Y: des.Pos.Y}, Dir: des.Dir}
+					from <- Destiny{Pos: Position{X: des.Pos.X, Y: des.Pos.Y - 1}, Dir: des.Dir}
+					from <- Destiny{Pos: Position{X: des.Pos.X + 1, Y: des.Pos.Y   }, Dir: des.Dir}
+					from <- Destiny{Pos: Position{X: des.Pos.X    , Y: des.Pos.Y + 1}, Dir: des.Dir}
+				}
+			}
+	
+		
+	
+	}
+	return Destiny{Pos: *state.Hero.Pos, Dir: "Stay"}
+}
+
+
+
+
+
+
+
+
 
 func (b *CashBot) buildBoards(state *State) {
 	b.Size = state.Game.Board.Size
