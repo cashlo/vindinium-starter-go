@@ -7,8 +7,8 @@ import (
 	"net"
 	"net/http"
 	"net/url"
-	"time"
 	"strings"
+	"time"
 )
 
 const (
@@ -121,13 +121,13 @@ func (c *Client) Play() error {
 			fmt.Printf("bot: %+v\n", c.Bot)
 			fmt.Printf("state: %+v\n", c.State)
 		}
-		
-		size := c.State.Game.Board.Size*2
-		fmt.Println(strings.Repeat("=",size))
-		for i := 0; i < size*(size/2); i = i+size {
-			fmt.Println(c.State.Game.Board.Tiles[i:i+size])
+
+		size := c.State.Game.Board.Size * 2
+		fmt.Println(strings.Repeat("=", size))
+		for i := 0; i < size*(size/2); i = i + size {
+			fmt.Println(c.State.Game.Board.Tiles[i : i+size])
 		}
-		c.State.Game.Board.parseTiles();
+		c.State.Game.Board.parseTiles()
 		fmt.Printf("%+v\n", c.State.Game.Board.Tileset)
 		dir := c.Bot.Move(c.State)
 		if err := c.move(dir); err != nil {
@@ -137,6 +137,6 @@ func (c *Client) Play() error {
 		move++
 	}
 
-	fmt.Println("\nFinished game.")
+	fmt.Println("\nFinished game.", c.State.ViewUrl)
 	return nil
 }

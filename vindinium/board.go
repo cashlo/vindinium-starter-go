@@ -87,6 +87,11 @@ func (board *Board) parseTiles() {
 	board.Tileset = ts
 }
 
+func (board *Board) GetTile(loc Position) interface{} {
+	tile := board.Tileset[loc.X][loc.Y]
+	return tile
+}
+
 func (board *Board) Passable(loc Position) bool {
 	tile := board.Tileset[loc.X][loc.Y]
 	return tile != WALL && tile != TAVERN && reflect.TypeOf(tile).String() != "MineTile"
