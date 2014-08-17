@@ -56,7 +56,6 @@ func (b *CashBot) Move(state *State) Direction {
 //	b.PrintDirectionBoard()
 //	fmt.Println("Going ", b.GoDirection)
 
-	from := make(chan Destiny, 10000)
 	hero := state.Hero
 	b.survivalMode = false
 
@@ -64,18 +63,23 @@ func (b *CashBot) Move(state *State) Direction {
 
 	for badHeroIndex := range state.Game.Heroes {
 		badHero := state.Game.Heroes[badHeroIndex]
-		if badHero.Gold >= hero.Gold && badHero.MineCount >= hero.MineCount {
+		if 	badHero.MineCount > hero.MineCount ||
+			( badHero.MineCount == hero.MineCount && badHero.Gold > hero.Gold )  {
 			lazyMode = false
 		}
+	}
+
+	if lazyMode && hero.Life > 90 {
+		return "Stay"
 	}
 
 	if hero.Life < 50 || lazyMode{
 		b.survivalMode = true
 	}
 
-	from <- Destiny{Pos: *hero.Pos, Dir: "Stay"}
+	
 
-	des := b.BoardWalker(state, from)
+	des := b.BoardWalker(state)
 	b.PrintDirectionBoard()
 
 	return des.Dir
@@ -86,14 +90,25 @@ type Destiny struct {
 	Dir Direction
 }
 
-func (b *CashBot) BoardWalker (state *State, from chan Destiny)  Destiny {
+func (b *CashBot) BoardWalker (state *State)  Destiny {
+
+	hero := state.Hero
+
+	from := make(chan Destiny, 10000)
+	from <- Destiny{Pos: *hero.Pos, Dir: "Stay"}
+
 	seen := make(map[Position]bool)
 	board := state.Game.Board
 	size := state.Game.Board.Size
 
+	searchlevel := 0
 	for des := range from {
 
-
+		searchlevel++
+		if searchlevel > 1000 {
+			return Destiny{Pos: *state.Hero.Pos, Dir: randDir()}
+		}
+		
 
 		if 	seen[des.Pos] ||
 			des.Pos.X < 0 ||
