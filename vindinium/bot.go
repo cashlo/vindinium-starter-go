@@ -50,7 +50,7 @@ func (b *CashBot) Move(state *State) Direction {
 	board := state.Game.Board
 	board.parseTiles()
 
-	b.buildBoards(state)
+	//b.buildBoards(state)
 	//b.fillBoards(state)
 
 //	b.PrintDirectionBoard()
@@ -80,7 +80,7 @@ func (b *CashBot) Move(state *State) Direction {
 	
 
 	des := b.BoardWalker(state)
-	b.PrintDirectionBoard()
+	//b.PrintDirectionBoard()
 
 	return des.Dir
 }
@@ -105,7 +105,7 @@ func (b *CashBot) BoardWalker (state *State)  Destiny {
 	for des := range from {
 
 		searchlevel++
-		if searchlevel > 1000 {
+		if searchlevel > 500 {
 			return Destiny{Pos: *state.Hero.Pos, Dir: randDir()}
 		}
 		
@@ -159,7 +159,7 @@ func (b *CashBot) BoardWalker (state *State)  Destiny {
 				}
 
 				
-				b.DirectionBoard[des.Pos.X][des.Pos.Y] = des.Dir[:1]
+				//b.DirectionBoard[des.Pos.X][des.Pos.Y] = des.Dir[:1]
 				if des.Dir == "Stay" {
 					from <- Destiny{Pos: Position{X: des.Pos.X - 1, Y: des.Pos.Y    }, Dir: "North"}
 					from <- Destiny{Pos: Position{X: des.Pos.X    , Y: des.Pos.Y - 1}, Dir: "West"}
