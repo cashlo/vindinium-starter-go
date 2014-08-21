@@ -131,7 +131,10 @@ func (c *Client) Play() error {
 		}
 		c.State.Game.Board.parseTiles()
 		fmt.Printf("%+v\n", c.State.Game.Board.Tileset)
+
+		startPlaying := time.Now()
 		dir := c.Bot.Move(c.State)
+		fmt.Println("Time taken to play: ", time.Since(startPlaying))
 		if err := c.move(dir); err != nil {
 			return err
 		}

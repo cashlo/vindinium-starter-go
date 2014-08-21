@@ -6,6 +6,7 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"time"
 )
 
 type Direction string
@@ -64,7 +65,7 @@ func (b *CashBot) Move(state *State) Direction {
 	for badHeroIndex := range state.Game.Heroes {
 		badHero := state.Game.Heroes[badHeroIndex]
 		if 	badHero.MineCount > hero.MineCount ||
-			( badHero.MineCount == hero.MineCount && badHero.Gold > hero.Gold )  {
+			( badHero.MineCount == hero.MineCount && badHero.Gold >= hero.Gold )  {
 			lazyMode = false
 		}
 	}
@@ -78,10 +79,12 @@ func (b *CashBot) Move(state *State) Direction {
 	}
 
 	
-
-	des := b.BoardWalker(state)
-	//b.PrintDirectionBoard()
-
+	
+	out := make(chan Destiny)
+	go b.BoardWalker(state,out)
+	go b.oneSec(out)
+	
+	des := <-out
 	return des.Dir
 }
 
@@ -90,14 +93,33 @@ type Destiny struct {
 	Dir Direction
 }
 
-func (b *CashBot) BoardWalker (state *State)  Destiny {
+func (b *CashBot) oneSec( out chan Destiny ) {
+	time.Sleep(1 * time.Second)
+	out <- Destiny{Pos: Position{0,0}, Dir: randDir()}
+	return
+}
+
+func (b *CashBot) seenCoordinator (posIn <-chan Position, seenOut chan<- bool){
+	seen := make(map[Position]bool)
+	for pos := range posIn {
+		seenOut <- seen[pos]
+		seen[pos] = true
+	}
+	return
+}
+
+func (b *CashBot) BoardWalker (state *State, out chan Destiny) {
 
 	hero := state.Hero
 
 	from := make(chan Destiny, 10000)
 	from <- Destiny{Pos: *hero.Pos, Dir: "Stay"}
 
-	seen := make(map[Position]bool)
+	posToVisit := make(chan Position)
+	posSeen := make(chan bool)
+
+	go b.seenCoordinator(posToVisit, posSeen)
+
 	board := state.Game.Board
 	size := state.Game.Board.Size
 
@@ -105,12 +127,13 @@ func (b *CashBot) BoardWalker (state *State)  Destiny {
 	for des := range from {
 
 		searchlevel++
-		if searchlevel > 500 {
-			return Destiny{Pos: *state.Hero.Pos, Dir: randDir()}
+		if searchlevel > 5000 {
+			out <- Destiny{Pos: *state.Hero.Pos, Dir: randDir()}
+			return
 		}
 		
-
-		if 	seen[des.Pos] ||
+		posToVisit <- des.Pos
+		if 	 <- posSeen ||
 			des.Pos.X < 0 ||
 			des.Pos.Y < 0 ||
 			des.Pos.X >= size ||
@@ -119,14 +142,13 @@ func (b *CashBot) BoardWalker (state *State)  Destiny {
 			if len(from) <= 0 {
 				break
 			}
-
 			continue
 		}
-			seen[des.Pos] = true
 			tile := board.Tileset[des.Pos.X][des.Pos.Y]
 
 			if b.survivalMode && tile == TAVERN {
-				return des
+				out <- des
+				return
 			}
 
 			if reflect.TypeOf(tile).String() == "*vindinium.HeroTile" {
@@ -135,7 +157,8 @@ func (b *CashBot) BoardWalker (state *State)  Destiny {
 					hero := state.Game.Heroes[heroTile.Id-1]
 					if(hero.Life < state.Hero.Life){
 						fmt.Printf("Found Hero %d with less life!", heroTile.Id)
-						return des
+						out <- des
+						return
 					}
 				}
 			}
@@ -144,7 +167,8 @@ func (b *CashBot) BoardWalker (state *State)  Destiny {
 				mine := tile.(*MineTile)
 				mineId, _ := strconv.Atoi(mine.HeroId)
 				if mineId != state.Hero.Id {
-					return des
+					out <- des
+					return
 				}
 			}
 
@@ -176,7 +200,8 @@ func (b *CashBot) BoardWalker (state *State)  Destiny {
 		
 	
 	}
-	return Destiny{Pos: *state.Hero.Pos, Dir: "Stay"}
+	out <- Destiny{Pos: *state.Hero.Pos, Dir: "Stay"}
+	return
 }
 
 
@@ -199,76 +224,9 @@ func (b *CashBot) buildBoards(state *State) {
 	}
 }
 
-func (b *CashBot) fillBoards(state *State) {
-	hero := state.Hero
-	b.survivalMode = false
-	if hero.Life < 70 {
-		b.survivalMode = true
-	}
-	b.fillBoardsRecursive(state, hero.Life, hero.Pos, "Stay")
-	//b.PrintLifeBoard(nil)
-}
 
-func (b *CashBot) fillBoardsRecursive(state *State, life int, pos *Position, way Direction) {
-
-	if pos.X < 0 ||
-		pos.Y < 0 ||
-		pos.X >= b.Size-1 ||
-		pos.Y >= b.Size-1 ||
-		life < 0 || 
-		(!b.survivalMode && life < 70) {
-		return
-	}
-
-	board := state.Game.Board
-	tile := board.Tileset[pos.X][pos.Y]
-
-	if b.survivalMode && tile == TAVERN {
-		if life > b.MaxLife {
-			b.MaxLife = life
-			b.GoDirection = way
-		}
-		return
-	}
-
-			if !b.survivalMode && reflect.TypeOf(tile).String() == "*vindinium.MineTile" {
-				mine := tile.(*MineTile)
-				mineId, _ := strconv.Atoi(mine.HeroId)
-				if life > b.MaxLife && mineId != state.Hero.Id {
-					/*
-						fmt.Println("Found a mine!",mine.HeroId)
-						fmt.Println("My id ", string(state.Hero.Id) )
-						fmt.Println("at pos", pos)
-						fmt.Println("with life", life)
-					*/
-					b.MaxLife = life
-					b.GoDirection = way
-					//fmt.Println("Let's go ",way)
-				}
-				return
-			}
-
-	if tile == AIR || reflect.TypeOf(tile).String() == "*vindinium.HeroTile" {
-
-		if life > b.LifeBoard[pos.X][pos.Y] {
-			b.LifeBoard[pos.X][pos.Y] = life
-			b.DirectionBoard[pos.X][pos.Y] = way[:1]
-
-
-			if way == "Stay" {
-				b.fillBoardsRecursive(state, life-1, &Position{pos.X, pos.Y - 1}, "West")
-				b.fillBoardsRecursive(state, life-1, &Position{pos.X - 1, pos.Y}, "North")
-				b.fillBoardsRecursive(state, life-1, &Position{pos.X, pos.Y + 1}, "East")
-				b.fillBoardsRecursive(state, life-1, &Position{pos.X + 1, pos.Y}, "South")
-			} else {
-				b.fillBoardsRecursive(state, life-1, &Position{pos.X, pos.Y - 1}, way)
-				b.fillBoardsRecursive(state, life-1, &Position{pos.X - 1, pos.Y}, way)
-				b.fillBoardsRecursive(state, life-1, &Position{pos.X, pos.Y + 1}, way)
-				b.fillBoardsRecursive(state, life-1, &Position{pos.X + 1, pos.Y}, way)
-			}
-
-		}
-	}
+func (b *CashBot) visitNode(pos *Position, way Direction) {
+	
 }
 
 func (b *CashBot) PrintDirectionBoard() {
