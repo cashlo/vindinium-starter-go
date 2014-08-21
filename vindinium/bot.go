@@ -62,8 +62,13 @@ func (b *CashBot) Move(state *State) Direction {
 
 	lazyMode := true
 
+    fmt.Println("My ID: ", hero.Id, "My mines: ", hero.MineCount, " My gold: ", hero.Gold)
 	for badHeroIndex := range state.Game.Heroes {
 		badHero := state.Game.Heroes[badHeroIndex]
+        if hero.Id == badHero.Id {
+            continue
+        }
+        fmt.Println("their mines: ", badHero.MineCount, " Their gold: ", badHero.Gold)
 		if 	badHero.MineCount > hero.MineCount ||
 			( badHero.MineCount == hero.MineCount && badHero.Gold >= hero.Gold )  {
 			lazyMode = false
@@ -155,7 +160,7 @@ func (b *CashBot) BoardWalker (state *State, out chan Destiny) {
 				heroTile := tile.(*HeroTile)
 				if(heroTile.Id != state.Hero.Id){
 					hero := state.Game.Heroes[heroTile.Id-1]
-					if(hero.Life < state.Hero.Life){
+					if(hero.Life < state.Hero.Life && hero.MineCount > 1){
 						fmt.Printf("Found Hero %d with less life!", heroTile.Id)
 						out <- des
 						return

@@ -130,7 +130,6 @@ func (c *Client) Play() error {
 			fmt.Println(c.State.Game.Board.Tiles[i : i+size])
 		}
 		c.State.Game.Board.parseTiles()
-		fmt.Printf("%+v\n", c.State.Game.Board.Tileset)
 
 		startPlaying := time.Now()
 		dir := c.Bot.Move(c.State)
