@@ -132,10 +132,6 @@ func (b *CashBot) BoardWalker (state *State, out chan Destiny) {
 	for des := range from {
 
 		searchlevel++
-		if searchlevel > 5000 {
-			out <- Destiny{Pos: *state.Hero.Pos, Dir: randDir()}
-			return
-		}
 		
 		posToVisit <- des.Pos
 		if 	 <- posSeen ||
@@ -205,7 +201,7 @@ func (b *CashBot) BoardWalker (state *State, out chan Destiny) {
 		
 	
 	}
-	out <- Destiny{Pos: *state.Hero.Pos, Dir: "Stay"}
+	out <- Destiny{Pos: *state.Hero.Pos, Dir: randDir()}
 	return
 }
 
