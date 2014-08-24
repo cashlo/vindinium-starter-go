@@ -53,5 +53,5 @@ func main() {
 			fmt.Println(err.Error())
 		}
 	}
-	fmt.Printf("Finished %d games.", games)
+	fmt.Printf("Finished %d games.\n", games)
 }
