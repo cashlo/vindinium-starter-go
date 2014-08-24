@@ -13,6 +13,8 @@ type Direction string
 
 var DIRS = []Direction{"Stay", "North", "South", "East", "West"}
 
+const LifeToPanic = 50
+
 func randDir() Direction {
 	dir := DIRS[rand.Intn(len(DIRS))]
 
@@ -54,12 +56,6 @@ func (b *CashBot) Move(state *State) Direction {
 	board := state.Game.Board
 	board.parseTiles()
 
-	//b.buildBoards(state)
-	//b.fillBoards(state)
-
-	//	b.PrintDirectionBoard()
-	//	fmt.Println("Going ", b.GoDirection)
-
 	hero := state.Hero
 	b.survivalMode = false
 
@@ -82,7 +78,7 @@ func (b *CashBot) Move(state *State) Direction {
 		return "Stay"
 	}
 
-	if hero.Life < 50 || lazyMode {
+	if hero.Life < LifeToPanic || lazyMode {
 		b.survivalMode = true
 	}
 
@@ -124,37 +120,41 @@ func (b *CashBot) BoardWalker(state *State, out chan Destiny) {
 	go b.visitNode(
 		state,
 		Destiny{Pos: Position{X: hero.Pos.X - 1, Y: hero.Pos.Y}, Dir: "North"},
+		hero.Life,
 		out)
 
 	go b.visitNode(
 		state,
-		Destiny{Pos: Position{X:hero.Pos.X, Y: hero.Pos.Y - 1}, Dir: "West"},
+		Destiny{Pos: Position{X: hero.Pos.X, Y: hero.Pos.Y - 1}, Dir: "West"},
+		hero.Life,
 		out)
 
 	go b.visitNode(
 		state,
 		Destiny{Pos: Position{X: hero.Pos.X + 1, Y: hero.Pos.Y}, Dir: "South"},
+		hero.Life,
 		out)
 
 	go b.visitNode(
 		state,
 		Destiny{Pos: Position{X: hero.Pos.X, Y: hero.Pos.Y + 1}, Dir: "East"},
+		hero.Life,
 		out)
 	return
 }
 
-func (b *CashBot) visitNode(state *State, des Destiny, out chan Destiny) {
+func (b *CashBot) visitNode(state *State, des Destiny, life int, out chan Destiny) {
 
 	board := state.Game.Board
 	size := state.Game.Board.Size
-
 
 	b.posToVisit <- des.Pos
 	if <-b.posSeen ||
 		des.Pos.X < 0 ||
 		des.Pos.Y < 0 ||
 		des.Pos.X >= size ||
-		des.Pos.Y >= size {
+		des.Pos.Y >= size ||
+		(!b.survivalMode && life < LifeToPanic) {
 		return
 	}
 
@@ -170,9 +170,13 @@ func (b *CashBot) visitNode(state *State, des Destiny, out chan Destiny) {
 		if heroTile.Id != state.Hero.Id {
 			hero := state.Game.Heroes[heroTile.Id-1]
 			if hero.Life < state.Hero.Life && hero.MineCount > 1 {
-				fmt.Printf("Found Hero %d with less life!", heroTile.Id)
+				fmt.Printf("Found Hero %d with less life!\n", heroTile.Id)
 				out <- des
 				return
+			} else if hero.Life < state.Hero.Life && state.Hero.MineCount > 0 {
+				fmt.Println("Run for my life!!")
+				b.survivalMode = true
+				
 			}
 		}
 	}
@@ -198,21 +202,25 @@ func (b *CashBot) visitNode(state *State, des Destiny, out chan Destiny) {
 		go b.visitNode(
 			state,
 			Destiny{Pos: Position{X: des.Pos.X - 1, Y: des.Pos.Y}, Dir: des.Dir},
+			life-1,
 			out)
 
 		go b.visitNode(
 			state,
 			Destiny{Pos: Position{X: des.Pos.X, Y: des.Pos.Y - 1}, Dir: des.Dir},
+			life-1,
 			out)
 
 		go b.visitNode(
 			state,
 			Destiny{Pos: Position{X: des.Pos.X + 1, Y: des.Pos.Y}, Dir: des.Dir},
+			life-1,
 			out)
 
 		go b.visitNode(
 			state,
 			Destiny{Pos: Position{X: des.Pos.X, Y: des.Pos.Y + 1}, Dir: des.Dir},
+			life-1,
 			out)
 	}
 }

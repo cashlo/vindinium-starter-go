@@ -13,7 +13,7 @@ import (
 )
 
 const (
-	MoveTimeout  = 15
+	MoveTimeout  = 1
 	StartTimeout = 10 * 60
 )
 
@@ -63,12 +63,31 @@ func (c *Client) finished() bool {
 func (c *Client) move(dir Direction) error {
 	values := make(url.Values)
 	values.Set("dir", string(dir))
-	return c.post(c.State.PlayUrl, values, MoveTimeout)
+
+	errorChan := make(chan error)
+
+	go c.post(c.State.PlayUrl, values, errorChan, MoveTimeout)
+
+	tick := time.Tick(900 * time.Millisecond)
+	for {
+		select {
+		case <-tick:
+			fmt.Println("Let's make more request, or maybe just give up")
+			//go c.post(c.State.PlayUrl, values, errorChan, MoveTimeout)
+		case err := <-errorChan:
+			if err != nil && err.Error() == "Request error: Vindinium - Wait, you're not supposed to play now" {
+				fmt.Println("Wow, wait")
+			} else {
+				return err
+			}
+		}
+	}
+	return nil
 }
 
-func (c *Client) post(uri string, values url.Values, seconds int) error {
+func (c *Client) post(uri string, values url.Values, errorChan chan error, seconds int) {
 	if c.Debug {
-		fmt.Printf("Making request to to: %s\n", uri)
+		fmt.Printf("Making request to: %s\n", uri)
 	}
 	timeout := time.Duration(seconds) * time.Second
 	dial := func(network, addr string) (net.Conn, error) {
@@ -81,7 +100,8 @@ func (c *Client) post(uri string, values url.Values, seconds int) error {
 	response, err := client.PostForm(uri, values)
 	if err != nil {
 		fmt.Println("PostForm error: ", values)
-		return err
+		errorChan <- err
+		return
 	}
 
 	defer response.Body.Close()
@@ -89,21 +109,25 @@ func (c *Client) post(uri string, values url.Values, seconds int) error {
 	data, _ := ioutil.ReadAll(response.Body)
 
 	if response.StatusCode >= 500 {
-		return errors.New(fmt.Sprintf("Server responded with %s", response.Status))
+		errorChan <- errors.New(fmt.Sprintf("Server responded with %s", response.Status))
+		return
 	} else if response.StatusCode >= 400 {
-		return errors.New(fmt.Sprintf("Request error: %s", string(data[:])))
+		errorChan <- errors.New(fmt.Sprintf("Request error: %s", string(data[:])))
+		return
 	}
 
 	if err := json.Unmarshal(data, &c.State); err != nil {
 		fmt.Println("Unmarshal Error: ", string(data), "state: ", c.State)
-		return err
+		errorChan <- err
+		return
 	}
 
 	if c.Debug {
 		fmt.Printf("Setting data to:\n%s\n", string(data))
 	}
 
-	return nil
+	errorChan <- nil
+	return
 }
 
 func (c *Client) Start() error {
@@ -116,8 +140,10 @@ func (c *Client) Start() error {
 		}
 	}
 
+	errorChan := make(chan error)
 	fmt.Println("Connecting and waiting for other players to join...")
-	return c.post(c.Url, values, StartTimeout)
+	go c.post(c.Url, values, errorChan, StartTimeout)
+	return <-errorChan
 }
 
 func (c *Client) Play() error {
